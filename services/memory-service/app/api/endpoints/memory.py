@@ -38,10 +38,36 @@ async def store_memory(
         return result
     except ValueError as ve:
         logger.error(f"Validation error: {str(ve)}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(ve))
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "message": str(ve),
+                "error_code": "MEMORY_STORE_VALIDATION_ERROR",
+                "details": str(ve)
+            }
+        )
+    except HTTPException as he:
+        return JSONResponse(
+            status_code=he.status_code,
+            content={
+                "success": False,
+                "message": he.detail if isinstance(he.detail, str) else he.detail.get("message", "HTTP error"),
+                "error_code": he.detail.get("error_code", "HTTP_ERROR") if isinstance(he.detail, dict) else "HTTP_ERROR",
+                "details": he.detail
+            }
+        )
     except Exception as e:
         logger.error(f"Failed to store memory: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Failed to store memory",
+                "error_code": "MEMORY_STORE_FAILED",
+                "details": str(e)
+            }
+        )
 
 
 @router.post("/memories/search",
@@ -58,10 +84,36 @@ async def search_memories(
         result = await memory_service.retrieve_memories(search_request)
         return result
     except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "message": str(ve),
+                "error_code": "MEMORY_SEARCH_VALIDATION_ERROR",
+                "details": str(ve)
+            }
+        )
+    except HTTPException as he:
+        return JSONResponse(
+            status_code=he.status_code,
+            content={
+                "success": False,
+                "message": he.detail if isinstance(he.detail, str) else he.detail.get("message", "HTTP error"),
+                "error_code": he.detail.get("error_code", "HTTP_ERROR") if isinstance(he.detail, dict) else "HTTP_ERROR",
+                "details": he.detail
+            }
+        )
     except Exception as e:
         logger.error(f"Failed to search memories for user {search_request.username}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to search memories")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Failed to search memories",
+                "error_code": "MEMORY_SEARCH_FAILED",
+                "details": str(e)
+            }
+        )
 
 
 @router.get("/memories/{username}",
@@ -77,18 +129,48 @@ async def get_user_memories(
 ) -> MemorySearchResponse:
     try:
         if not username.strip():
-            raise HTTPException(status_code=400, detail="Username cannot be empty")
-
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "Username cannot be empty",
+                    "error_code": "USERNAME_REQUIRED",
+                    "username": username
+                }
+            )
         if limit < 1 or limit > 50:
-            raise HTTPException(status_code=422, detail="Limit must be between 1 and 50")
-
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "success": False,
+                    "message": "Limit must be between 1 and 50",
+                    "error_code": "LIMIT_OUT_OF_RANGE",
+                    "limit": limit
+                }
+            )
         result = await memory_service.get_user_memories(username.strip(), limit)
         return result
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        return JSONResponse(
+            status_code=he.status_code,
+            content={
+                "success": False,
+                "message": he.detail if isinstance(he.detail, str) else he.detail.get("message", "HTTP error"),
+                "error_code": he.detail.get("error_code", "HTTP_ERROR") if isinstance(he.detail, dict) else "HTTP_ERROR",
+                "details": he.detail
+            }
+        )
     except Exception as e:
         logger.error(f"Failed to get memories for user {username}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to get user memories")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Failed to get user memories",
+                "error_code": "MEMORY_GET_FAILED",
+                "details": str(e)
+            }
+        )
 
 
 @router.delete("/memories/{username}",
@@ -103,15 +185,38 @@ async def delete_user_memories(
 ) -> MemoryResponse:
     try:
         if not username.strip():
-            raise HTTPException(status_code=400, detail="Username cannot be empty")
-
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "Username cannot be empty",
+                    "error_code": "USERNAME_REQUIRED",
+                    "username": username
+                }
+            )
         result = await memory_service.delete_user_memories(username.strip())
         return result
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        return JSONResponse(
+            status_code=he.status_code,
+            content={
+                "success": False,
+                "message": he.detail if isinstance(he.detail, str) else he.detail.get("message", "HTTP error"),
+                "error_code": he.detail.get("error_code", "HTTP_ERROR") if isinstance(he.detail, dict) else "HTTP_ERROR",
+                "details": he.detail
+            }
+        )
     except Exception as e:
         logger.error(f"Failed to delete memories for user {username}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to delete user memories")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Failed to delete user memories",
+                "error_code": "MEMORY_DELETE_FAILED",
+                "details": str(e)
+            }
+        )
 
 
 @router.get("/health",
@@ -131,9 +236,12 @@ async def health_check() -> HealthResponse:
         )
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
-        return HealthResponse(
-            status="unhealthy",
-            service=get_settings().SERVICE_NAME,
-            mem0="error",
-            timestamp=datetime.utcnow().isoformat() + "Z"
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Health check failed",
+                "error_code": "HEALTH_CHECK_FAILED",
+                "details": str(e)
+            }
         )

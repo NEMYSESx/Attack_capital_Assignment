@@ -152,6 +152,11 @@ def create_app() -> FastAPI:
             },
         }
 
+    @app.get("/health", tags=["Health"])
+    async def health():
+        return {"status": "ok"}
+
+
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
         start_time = time.time()
